@@ -38,3 +38,13 @@ body {
     padding: 20px;
     padding-left: 40px;
 }
+
+#email {
+    color: #333;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+#email:hover {
+    text-decoration: underline;
+}
