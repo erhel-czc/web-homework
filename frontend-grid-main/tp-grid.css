@@ -31,3 +31,11 @@ h2 {
 #instructions {
   width: 600px;
 }
+
+#stats {
+  width: 600px;
+}
+
+.buttons {
+  display: flex;
+}
