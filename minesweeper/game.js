@@ -25,7 +25,7 @@ function placeMines() {
         const row = Math.floor(Math.random() * nRow);
         const col = Math.floor(Math.random() * nCol);
         const cell = document.querySelector(`.cell[row="${row}"][col="${col}"]`);
-        if (cell.getAttribute("mine") === "true") {
+        if (cell.getAttribute("mine") === "true" && cell.getAttribute("opened") === "false") {
             i -= 1;
             continue;
         }
@@ -33,17 +33,40 @@ function placeMines() {
     }
 }
 
+function updateColors() {
+    const cells = document.querySelectorAll(".cell");
+    cells.forEach(cell => {
+        if (cell.getAttribute("opened") === "true") {
+            cell.style.backgroundColor = "var(--clicked-color)";
+        }
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+    let firstClick = true;
     drawGrid();
     console.log("Grid drawn");
 
-    // place mines after the first click to ensure the first click is never a mine
     const grid = document.getElementById("board");
     grid.addEventListener("click", (event) => {
         if (event.target.classList.contains("cell")) {
-            placeMines();
+            console.log(`Clicked on ${event.target.getAttribute("row")}, ${event.target.getAttribute("col")}`);
+            event.target.setAttribute("opened", "true");
+
+            updateColors();
+
+            // place mines after the first click to ensure the first click is never a mine
+            if (firstClick) {
+                placeMines();
+                console.log("Mines placed");
+                firstClick = false;
+
+            }
+
         }
+
+
     });
 
-    console.log("Mines placed");
+
 });

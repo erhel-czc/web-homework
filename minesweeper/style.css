@@ -1,7 +1,8 @@
 :root {
     --size: 50px;
-    --hover-color: #d1d1d1;
+    --hover-color: #e1e1e1;
     --square-color: #f1f1f1;
+    --clicked-color: #c1c1c1;
 }
 
 body {
@@ -39,4 +40,10 @@ body {
     height: var(--size);
     width: var(--size);
     margin: 5px;
+    border-radius: 8px;
+}
+
+.cell:hover {
+    background-color: var(--hover-color);
+    box-shadow: var(--hover-color) 0px 0px 10px;
 }
