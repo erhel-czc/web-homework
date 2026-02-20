@@ -13,11 +13,13 @@ body {
 
 #controls {
     display: flex;
+    justify-content: center;
     gap: 10px;
 }
 
 .button {
     padding: 10px;
+    margin: 10px;
     border-radius: 8px;
     cursor: pointer;
     background-color: var(--square-color);
