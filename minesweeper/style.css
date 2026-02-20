@@ -26,3 +26,15 @@ body {
 .button:hover {
     background-color: var(--hover-color);
 }
+
+#board {
+    display: grid;
+}
+
+.cell {
+    background-color: var(--square-color);
+    cursor: pointer;
+    height: var(--size);
+    width: var(--size);
+    margin: 5px;
+}
