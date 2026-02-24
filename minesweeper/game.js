@@ -79,6 +79,7 @@ function resetGame() {
     grid.innerHTML = "";
     drawGrid();
     updateColors();
+    grid.style.pointerEvents = "auto";
 }
 
 
@@ -87,15 +88,17 @@ function openEmptyCells(row, col) {
 
     if (!cell || cell.getAttribute("opened") === "true") return;
     cell.setAttribute("opened", "true");
-    
+
     const n = countAdjacentMines(row, col);
     cell.textContent = n > 0 ? n : "";
+
     if (n === 0) {
         let directions = [
             [-1, -1], [-1, 0], [-1, 1],
             [0, -1], [0, 1],
             [1, -1], [1, 0], [1, 1]
         ];
+
         for (let i = 0; i < directions.length; i++) {
             let dr = directions[i][0];
             let dc = directions[i][1];
@@ -108,8 +111,27 @@ function openEmptyCells(row, col) {
     }
 }
 
+function lostGame() {
+    console.log("Game lost");
+
+    const cells = document.querySelectorAll(".cell");
+    cells.forEach(cell => {
+        if (cell.getAttribute("mine") === "true") {
+            cell.setAttribute("opened", "true");
+        }
+    });
+
+    updateColors();
+
+    // block further clicks
+    const grid = document.getElementById("board");
+    grid.style.pointerEvents = "none";
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     let firstClick = true;
+    let won = false;
+
     drawGrid();
     console.log("Grid drawn");
 
@@ -139,12 +161,25 @@ document.addEventListener("DOMContentLoaded", () => {
             if (event.target.getAttribute("mine") === "true") {
                 event.target.setAttribute("opened", "true");
                 updateColors();
-                return;
+                lostGame();
             }
 
             // empty cells around opened
             openEmptyCells(row, col);
+
             updateColors();
+
+            // check if the game is won
+            const cells = document.querySelectorAll(".cell");
+
+            const remainingCells = Array.from(cells).filter(cell => cell.getAttribute("opened") === "false" && cell.getAttribute("mine") === "false");
+
+            if (remainingCells.length === 0) {
+                won = true;
+                grid.style.pointerEvents = "none";
+                console.log("Game won!");
+                alert("Congratulations! You've won the game!");
+            }
         }
     });
 });
