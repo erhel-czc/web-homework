@@ -74,10 +74,19 @@ function countAdjacentMines(row, col) {
     return count;
 }
 
+function resetGame() {
+    const grid = document.getElementById("board");
+    grid.innerHTML = "";
+    drawGrid();
+    updateColors();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     let firstClick = true;
     drawGrid();
     console.log("Grid drawn");
+
+    updateColors();
 
     const grid = document.getElementById("board");
 
