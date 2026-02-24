@@ -43,7 +43,20 @@ body {
     border-radius: 8px;
 }
 
+.cell.bombed {
+    background-color: red !important;
+    color: white;
+}
+
+
 .cell:hover {
     background-color: var(--hover-color);
     box-shadow: var(--hover-color) 0px 0px 10px;
+}
+
+.cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
 }
