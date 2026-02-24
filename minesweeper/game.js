@@ -90,6 +90,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const grid = document.getElementById("board");
 
+    const resetButton = document.getElementById("reset");
+    resetButton.addEventListener("click", () => {
+        resetGame();
+        firstClick = true;
+        console.log("Game reset");
+    });
 
     grid.addEventListener("click", (event) => {
         if (event.target.classList.contains("cell")) {
@@ -106,7 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             updateColors();
 
-            // Afficher le nombre de bombes autour si ce n'est pas une mine
+            // if the cell is not a mine, count the number of adjacent mines and display it
             if (event.target.getAttribute("mine") !== "true") {
                 const n = countAdjacentMines(row, col);
                 event.target.textContent = n > 0 ? n : "";
