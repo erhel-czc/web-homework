@@ -81,6 +81,33 @@ function resetGame() {
     updateColors();
 }
 
+
+function openEmptyCells(row, col) {
+    const cell = document.querySelector(`.cell[row="${row}"][col="${col}"]`);
+
+    if (!cell || cell.getAttribute("opened") === "true") return;
+    cell.setAttribute("opened", "true");
+    
+    const n = countAdjacentMines(row, col);
+    cell.textContent = n > 0 ? n : "";
+    if (n === 0) {
+        let directions = [
+            [-1, -1], [-1, 0], [-1, 1],
+            [0, -1], [0, 1],
+            [1, -1], [1, 0], [1, 1]
+        ];
+        for (let i = 0; i < directions.length; i++) {
+            let dr = directions[i][0];
+            let dc = directions[i][1];
+            let nr = parseInt(row) + dr;
+            let nc = parseInt(col) + dc;
+            if (nr >= 0 && nr < nRow && nc >= 0 && nc < nCol) {
+                openEmptyCells(nr, nc);
+            }
+        }
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     let firstClick = true;
     drawGrid();
@@ -101,7 +128,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (event.target.classList.contains("cell")) {
             const row = event.target.getAttribute("row");
             const col = event.target.getAttribute("col");
-            event.target.setAttribute("opened", "true");
 
             // place mines after the first click to ensure the first click is never a mine
             if (firstClick) {
@@ -110,13 +136,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 firstClick = false;
             }
 
-            updateColors();
-
-            // if the cell is not a mine, count the number of adjacent mines and display it
-            if (event.target.getAttribute("mine") !== "true") {
-                const n = countAdjacentMines(row, col);
-                event.target.textContent = n > 0 ? n : "";
+            if (event.target.getAttribute("mine") === "true") {
+                event.target.setAttribute("opened", "true");
+                updateColors();
+                return;
             }
+
+            // empty cells around opened
+            openEmptyCells(row, col);
+            updateColors();
         }
     });
 });
