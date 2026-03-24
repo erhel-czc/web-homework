@@ -1,0 +1,221 @@
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap");
+
+:root {
+  --app-bg: #f2f5f9;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --border: #d7dde6;
+  --text: #1f2937;
+  --todo-accent: #e06674;
+  --doing-accent: #dca337;
+  --done-accent: #3ca883;
+  --button: #2f5dca;
+  --button-hover: #274faa;
+  --button-active: #1f438f;
+  --panel-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0px;
+  padding: 0px;
+}
+
+body {
+  font-family: "Source Sans 3", sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at top, #ffffff 0%, var(--app-bg) 60%, #edf1f6 100%);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  gap: 1.2%;
+  padding-top: 1.8%;
+  padding-bottom: 2.2%;
+}
+
+#top_zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 7%;
+  width: 90%;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #1a2433;
+}
+
+#board_zone {
+  display: flex;
+  flex-direction: row;
+  height: 74%;
+  width: 90%;
+  gap: 1.2rem;
+  padding: 0.2rem;
+}
+
+#input_zone {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 14%;
+  width: 90%;
+  gap: 1rem;
+}
+
+.panel {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--panel-shadow);
+  background-color: var(--surface-soft);
+}
+
+#todo_container {
+  background-color: #fff6f7;
+}
+
+#doing_container {
+  background-color: #fff9f1;
+}
+
+#done_container {
+  background-color: #f2fbf7;
+}
+
+#todo_header {
+  background-color: rgba(224, 102, 116, 0.22);
+}
+
+#doing_header {
+  background-color: rgba(220, 163, 55, 0.22);
+}
+
+#done_header {
+  background-color: rgba(60, 168, 131, 0.22);
+}
+
+.panel_header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 12%;
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.panel_list {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  height: 88%;
+  width: 100%;
+  overflow: auto;
+  gap: 0.65rem;
+  padding: 0.75rem;
+}
+
+#text_input {
+  flex: 1;
+  height: 100%;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background-color: var(--surface);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  color: var(--text);
+  padding: 0.75rem 0.9rem;
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+#text_input:focus {
+  outline: 2px solid rgba(47, 93, 202, 0.25);
+  border-color: #7e9de3;
+}
+
+#add_button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 22%;
+  min-width: 170px;
+  border: none;
+  border-radius: 12px;
+  background-color: var(--button);
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(47, 93, 202, 0.25);
+  cursor: pointer;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+#add_button:hover {
+  background-color: var(--button-hover);
+  box-shadow: 0 10px 20px rgba(39, 79, 170, 0.3);
+}
+
+#add_button:active {
+  background-color: var(--button-active);
+  transform: translateY(1px);
+}
+
+#add_button:focus-visible {
+  outline: 3px solid rgba(47, 93, 202, 0.3);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background-color: var(--surface);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+  font-size: 1rem;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+#todo_list .item {
+  border-left: 4px solid var(--todo-accent);
+}
+
+#doing_list .item {
+  border-left: 4px solid var(--doing-accent);
+}
+
+#done_list .item {
+  border-left: 4px solid var(--done-accent);
+}
