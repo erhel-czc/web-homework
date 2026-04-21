@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 # Database setup
@@ -9,7 +10,7 @@ engine = create_engine(DATABASE_URL, echo=True)
 
 class User(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    username: str
+    username: str = Field(index=True)
 
 
 class Message(SQLModel, table=True):
@@ -17,6 +18,7 @@ class Message(SQLModel, table=True):
     sender_id: int
     room_id: int
     content: str
+
 
 class Room(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
@@ -32,7 +34,18 @@ def get_session():
 
 # API setup
 
+
 app = FastAPI()
+
+# Simple CORS setup for local development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.post("/send")
 def send_message(sender_id: int, room_id: int, content: str, session: Session = Depends(get_session)):
@@ -48,13 +61,24 @@ def send_message(sender_id: int, room_id: int, content: str, session: Session = 
         "content": message.content
     }}
 
+
 @app.post("/users")
 def create_user(username: str, session: Session = Depends(get_session)):
+    if not username:
+        raise HTTPException(status_code=400, detail="Username cannot be empty")
+
+    statement = select(User).where(User.username == username)
+    existing_user = session.exec(statement).first()
+
+    if existing_user:
+        return existing_user
+
     user = User(username=username)
     session.add(user)
     session.commit()
     session.refresh(user)
     return user
+
 
 @app.post("/rooms")
 def create_room(name: str, session: Session = Depends(get_session)):
@@ -64,11 +88,25 @@ def create_room(name: str, session: Session = Depends(get_session)):
     session.refresh(room)
     return room
 
+
+@app.get("/rooms")
+def list_rooms(session: Session = Depends(get_session)):
+    statement = select(Room)
+    results = session.exec(statement).all()
+    return [
+        {
+            "id": room.id,
+            "name": room.name,
+        }
+        for room in results
+    ]
+
+
 @app.get("/messages/{room_id}")
 def get_messages(room_id: int, session: Session = Depends(get_session)):
     statement = select(Message).where(Message.room_id == room_id)
     results = session.exec(statement).all()
-    
+
     messages = [
         {
             "id": msg.id,
@@ -80,4 +118,3 @@ def get_messages(room_id: int, session: Session = Depends(get_session)):
     ]
 
     return {"messages": messages}
-
