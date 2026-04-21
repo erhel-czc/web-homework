@@ -10,14 +10,17 @@ engine = create_engine(DATABASE_URL, echo=True)
 class User(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     username: str
-    password: str
 
 
 class Message(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     sender_id: int
-    receiver_id: int
+    room_id: int
     content: str
+
+class Room(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    name: str
 
 
 SQLModel.metadata.create_all(engine)
@@ -32,8 +35,8 @@ def get_session():
 app = FastAPI()
 
 @app.post("/send")
-def send_message(sender_id: int, receiver_id: int, content: str, session: Session = Depends(get_session)):
-    message = Message(sender_id=sender_id, receiver_id=receiver_id, content=content)
+def send_message(sender_id: int, room_id: int, content: str, session: Session = Depends(get_session)):
+    message = Message(sender_id=sender_id, room_id=room_id, content=content)
     session.add(message)
     session.commit()
     session.refresh(message)
@@ -41,23 +44,40 @@ def send_message(sender_id: int, receiver_id: int, content: str, session: Sessio
     return {"status": "Message sent", "message": {
         "id": message.id,
         "sender_id": message.sender_id,
-        "receiver_id": message.receiver_id,
+        "room_id": message.room_id,
         "content": message.content
     }}
 
-@app.get("/messages/{user_id}")
-def get_messages(user_id: int, session: Session = Depends(get_session)):
-    statement = select(Message).where(Message.receiver_id == user_id)
+@app.post("/users")
+def create_user(username: str, session: Session = Depends(get_session)):
+    user = User(username=username)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+@app.post("/rooms")
+def create_room(name: str, session: Session = Depends(get_session)):
+    room = Room(name=name)
+    session.add(room)
+    session.commit()
+    session.refresh(room)
+    return room
+
+@app.get("/messages/{room_id}")
+def get_messages(room_id: int, session: Session = Depends(get_session)):
+    statement = select(Message).where(Message.room_id == room_id)
     results = session.exec(statement).all()
     
     messages = [
         {
             "id": msg.id,
             "sender_id": msg.sender_id,
-            "receiver_id": msg.receiver_id,
+            "room_id": msg.room_id,
             "content": msg.content
         }
         for msg in results
     ]
 
     return {"messages": messages}
+
