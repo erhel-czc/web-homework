@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 
@@ -37,6 +37,25 @@ def get_session():
 
 app = FastAPI()
 
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, data: dict):
+        for connection in self.active_connections:
+            await connection.send_json(data)
+
+
+manager = ConnectionManager()
+
 # Simple CORS setup for local development
 app.add_middleware(
     CORSMiddleware,
@@ -48,18 +67,35 @@ app.add_middleware(
 
 
 @app.post("/send")
-def send_message(sender_id: int, room_id: int, content: str, session: Session = Depends(get_session)):
+async def send_message(sender_id: int, room_id: int, content: str, session: Session = Depends(get_session)):
     message = Message(sender_id=sender_id, room_id=room_id, content=content)
     session.add(message)
     session.commit()
     session.refresh(message)
 
-    return {"status": "Message sent", "message": {
+    sender = session.get(User, message.sender_id)
+    message_data = {
         "id": message.id,
         "sender_id": message.sender_id,
+        "sender_username": sender.username if sender else None,
         "room_id": message.room_id,
-        "content": message.content
-    }}
+        "content": message.content,
+    }
+
+    await manager.broadcast(message_data)
+
+    return {"status": "Message sent", "message": message_data}
+
+
+@app.websocket("/ws/{room_id}")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep the connection open and detect disconnections.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 
 @app.post("/users")
@@ -107,22 +143,27 @@ def get_messages(room_id: int, session: Session = Depends(get_session)):
     statement = select(Message).where(Message.room_id == room_id)
     results = session.exec(statement).all()
 
-    messages = [
-        {
-            "id": msg.id,
-            "sender_id": msg.sender_id,
-            "room_id": msg.room_id,
-            "content": msg.content
-        }
-        for msg in results
-    ]
+    messages = []
+    for msg in results:
+        sender = session.get(User, msg.sender_id)
+        messages.append(
+            {
+                "id": msg.id,
+                "sender_id": msg.sender_id,
+                "sender_username": sender.username if sender else None,
+                "room_id": msg.room_id,
+                "content": msg.content,
+            }
+        )
 
     return {"messages": messages}
+
 
 @app.get("/users")
 def list_users(session: Session = Depends(get_session)):
     statement = select(User)
     results = session.exec(statement).all()
+
     return [
         {
             "id": user.id,
