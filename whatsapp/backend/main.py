@@ -118,3 +118,15 @@ def get_messages(room_id: int, session: Session = Depends(get_session)):
     ]
 
     return {"messages": messages}
+
+@app.get("/users")
+def list_users(session: Session = Depends(get_session)):
+    statement = select(User)
+    results = session.exec(statement).all()
+    return [
+        {
+            "id": user.id,
+            "username": user.username,
+        }
+        for user in results
+    ]
