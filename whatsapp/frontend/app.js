@@ -1,6 +1,19 @@
 
 const API_BASE_URL = 'http://localhost:8000';
 
+let currentUserId = null;
+let currentUserName = null;
+
+async function postJson(path, payload) {
+    return fetch(`${API_BASE_URL}${path}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+}
+
 function load() {
     console.log('App loaded');
 }
@@ -60,9 +73,7 @@ function askUserFromList(users, preselectedUserName = '') {
 }
 
 async function selectUser(userName) {
-    const response = await fetch(`${API_BASE_URL}/users?username=${encodeURIComponent(userName)}`, {
-        method: 'POST'
-    });
+    const response = await postJson('/users', { username: userName });
 
     if (!response.ok) {
         throw new Error(`User API error (${response.status})`);
@@ -70,6 +81,7 @@ async function selectUser(userName) {
 
     const user = await response.json();
     console.log(`User selected: ${user.username} (id=${user.id})`);
+    return user;
 }
 
 function updateUserNameDisplay(userName) {
@@ -79,6 +91,43 @@ function updateUserNameDisplay(userName) {
 
     userNameElement.textContent = safeUserName;
     userAvatarElement.textContent = safeUserName.charAt(0).toUpperCase();
+}
+
+async function fetchRooms() {
+    const response = await fetch(`${API_BASE_URL}/rooms`);
+    if (!response.ok) {
+        throw new Error(`Rooms API error (${response.status})`);
+    }
+    return response.json();
+}
+
+async function fetchSubscriptions(userId) {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/subscriptions`);
+    if (!response.ok) {
+        throw new Error(`Subscriptions API error (${response.status})`);
+    }
+    return response.json();
+}
+
+function updateRoomsList(rooms, subscriptions) {
+    const availableRoomsListElement = document.getElementById('discoverRoomsList');
+    const RoomsListElement = document.getElementById('roomsList');
+
+    availableRoomsListElement.innerHTML = '';
+    RoomsListElement.innerHTML = '';
+
+    rooms.forEach((room) => {
+        const listItem = document.createElement('li');
+        listItem.textContent = room.name;
+        
+        if (subscriptions.room_ids.includes(room.id)) {
+            RoomsListElement.appendChild(listItem);
+        }
+        
+        else {
+            availableRoomsListElement.appendChild(listItem);
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -97,10 +146,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             throw new Error('Selected user is invalid.');
         }
 
-        await selectUser(userName);
-        updateUserNameDisplay(userName);
-    } catch (error) {
+        const user = await selectUser(userName);
+        currentUserId = user.id;
+        currentUserName = user.username;
+        updateUserNameDisplay(currentUserName);
+    }
+    
+    catch (error) {
         console.error('Failed to select user:', error);
         updateUserNameDisplay('Unknown user');
     }
+
+    // load rooms
+    try {
+        const rooms = await fetchRooms();
+        const subscriptions = await fetchSubscriptions(currentUserId);
+        updateRoomsList(rooms, subscriptions);
+        
+    } catch (error) {
+        console.error('Failed to load rooms:', error);
+    }
+
 });
