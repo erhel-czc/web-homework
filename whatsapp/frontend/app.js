@@ -1,27 +1,66 @@
 
 const API_BASE_URL = 'http://localhost:8000';
-const USERNAME_STORAGE_KEY = 'whatsapp.username';
 
 function load() {
-    localStorage.clear();
     console.log('App loaded');
 }
 
-function getStoredUserName() {
-    return localStorage.getItem(USERNAME_STORAGE_KEY);
+async function fetchUsers() {
+    const response = await fetch(`${API_BASE_URL}/users`);
+
+    if (!response.ok) {
+        throw new Error(`Users API error (${response.status})`);
+    }
+
+    return response.json();
 }
 
-function storeUserName(userName) {
-    localStorage.setItem(USERNAME_STORAGE_KEY, userName);
+function isExistingUser(users, userName) {
+    return users.some((user) => user.username === userName);
 }
 
-function askUserName() {
-    const enteredUserName = prompt('Please enter your user name:');
-    return enteredUserName || '';
+function askUserFromList(users, preselectedUserName = '') {
+    return new Promise((resolve, reject) => {
+        const dialog = document.getElementById('joinDialog');
+        const form = document.getElementById('joinForm');
+        const userSelect = document.getElementById('usernameSelect');
+
+        userSelect.innerHTML = '';
+        users.forEach((user) => {
+            const option = document.createElement('option');
+            option.value = user.username;
+            option.textContent = user.username;
+            userSelect.appendChild(option);
+        });
+
+        const onSubmit = (event) => {
+            event.preventDefault();
+            const selectedUserName = userSelect.value;
+
+            cleanup();
+            dialog.close('submit');
+            resolve(selectedUserName);
+        };
+
+        const onCancel = (event) => {
+            event.preventDefault();
+        };
+
+        function cleanup() {
+            form.removeEventListener('submit', onSubmit);
+            dialog.removeEventListener('cancel', onCancel);
+        }
+
+        form.addEventListener('submit', onSubmit);
+        dialog.addEventListener('cancel', onCancel);
+
+        dialog.showModal();
+        return;
+    });
 }
 
 async function selectUser(userName) {
-    const response = await fetch(`${API_BASE_URL}/users?username=${userName}`, {
+    const response = await fetch(`${API_BASE_URL}/users?username=${encodeURIComponent(userName)}`, {
         method: 'POST'
     });
 
@@ -33,21 +72,35 @@ async function selectUser(userName) {
     console.log(`User selected: ${user.username} (id=${user.id})`);
 }
 
+function updateUserNameDisplay(userName) {
+    const userNameElement = document.getElementById('displayName');
+    const userAvatarElement = document.getElementById('userAvatar');
+    const safeUserName = userName || 'Unknown user';
+
+    userNameElement.textContent = safeUserName;
+    userAvatarElement.textContent = safeUserName.charAt(0).toUpperCase();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     load();
 
-    let userName = getStoredUserName();
+    try {
+        const users = await fetchUsers();
 
-    if (!userName) {
-        userName = askUserName();
-    }
-
-    if (userName) {
-        try {
-            await selectUser(userName);
-            storeUserName(userName);
-        } catch (error) {
-            console.error('Failed to select user:', error);
+        if (!Array.isArray(users) || users.length === 0) {
+            throw new Error('No users available. Create users first from backend/CLI.');
         }
+
+        const userName = await askUserFromList(users);
+
+        if (!isExistingUser(users, userName)) {
+            throw new Error('Selected user is invalid.');
+        }
+
+        await selectUser(userName);
+        updateUserNameDisplay(userName);
+    } catch (error) {
+        console.error('Failed to select user:', error);
+        updateUserNameDisplay('Unknown user');
     }
 });
