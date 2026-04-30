@@ -33,6 +33,26 @@ class Message(SQLModel, table=True):
     content: str
 
 
+# --- Request models ---
+
+class UserCreate(SQLModel):
+    username: str
+
+
+class RoomCreate(SQLModel):
+    name: str
+
+
+class SubscriptionChange(SQLModel):
+    user_id: int
+
+
+class MessageCreate(SQLModel):
+    sender_id: int
+    room_id: int
+    content: str
+
+
 SQLModel.metadata.create_all(engine)
 
 
@@ -82,15 +102,18 @@ manager = ConnectionManager()
 
 # Users
 
+
 @app.get("/users")
 def list_users(session: Session = Depends(get_session)):
     users = session.exec(select(User)).all()
-    
+
     return [{"id": u.id, "username": u.username} for u in users]
 
 
 @app.post("/users")
-def create_user(username: str, session: Session = Depends(get_session)):
+def create_user(payload: UserCreate, session: Session = Depends(get_session)):
+    username = payload.username.strip()
+
     if not username:
         raise HTTPException(status_code=400, detail="Username cannot be empty")
 
@@ -117,7 +140,13 @@ def list_rooms(session: Session = Depends(get_session)):
 
 
 @app.post("/rooms")
-def create_room(name: str, session: Session = Depends(get_session)):
+def create_room(payload: RoomCreate, session: Session = Depends(get_session)):
+    name = payload.name.strip()
+
+    if not name:
+        raise HTTPException(
+            status_code=400, detail="Room name cannot be empty")
+
     room = Room(name=name)
     session.add(room)
     session.commit()
@@ -129,7 +158,8 @@ def create_room(name: str, session: Session = Depends(get_session)):
 # Subscriptions
 
 @app.post("/rooms/{room_id}/subscribe")
-def subscribe(room_id: int, user_id: int, session: Session = Depends(get_session)):
+def subscribe(room_id: int, payload: SubscriptionChange, session: Session = Depends(get_session)):
+    user_id = payload.user_id
     room = session.get(Room, room_id)
 
     if not room:
@@ -156,7 +186,8 @@ def subscribe(room_id: int, user_id: int, session: Session = Depends(get_session
 
 
 @app.delete("/rooms/{room_id}/subscribe")
-def unsubscribe(room_id: int, user_id: int, session: Session = Depends(get_session)):
+def unsubscribe(room_id: int, payload: SubscriptionChange, session: Session = Depends(get_session)):
+    user_id = payload.user_id
     statement = select(Subscription).where(Subscription.user_id == user_id,
                                            Subscription.room_id == room_id)
     sub = session.exec(statement).first()
@@ -174,7 +205,7 @@ def unsubscribe(room_id: int, user_id: int, session: Session = Depends(get_sessi
 def user_subscriptions(user_id: int, session: Session = Depends(get_session)):
     subs = session.exec(select(Subscription).where(
         Subscription.user_id == user_id)).all()
-    
+
     return {"room_ids": [s.room_id for s in subs]}
 
 
@@ -184,7 +215,7 @@ def user_subscriptions(user_id: int, session: Session = Depends(get_session)):
 def get_messages(room_id: int, session: Session = Depends(get_session)):
     results = session.exec(select(Message).where(
         Message.room_id == room_id)).all()
-    
+
     messages = []
 
     for msg in results:
@@ -201,7 +232,11 @@ def get_messages(room_id: int, session: Session = Depends(get_session)):
 
 
 @app.post("/messages")
-async def send_message(sender_id: int, room_id: int, content: str, session: Session = Depends(get_session)):
+async def send_message(payload: MessageCreate, session: Session = Depends(get_session)):
+    sender_id = payload.sender_id
+    room_id = payload.room_id
+    content = payload.content
+
     statement = select(Subscription).where(Subscription.user_id == sender_id,
                                            Subscription.room_id == room_id)
     sub = session.exec(statement).first()
