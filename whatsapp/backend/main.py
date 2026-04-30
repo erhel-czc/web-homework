@@ -25,6 +25,12 @@ class Room(SQLModel, table=True):
     name: str
 
 
+class Subscription(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    user_id: int
+    room_id: int
+
+
 SQLModel.metadata.create_all(engine)
 
 
@@ -98,6 +104,15 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 
+@app.get("/users")
+def list_users(session: Session = Depends(get_session)):
+    statement = select(User)
+    users = session.exec(statement).all()
+
+    return [{"id": u.id,
+             "username": u.username} for u in users]
+
+
 @app.post("/users")
 def create_user(username: str, session: Session = Depends(get_session)):
     if not username:
@@ -138,6 +153,58 @@ def list_rooms(session: Session = Depends(get_session)):
     ]
 
 
+@app.post("/rooms/{room_id}/subscribe")
+def subscribe(room_id: int, user_id: int, session: Session = Depends(get_session)):
+    room = session.get(Room, room_id)
+
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    user = session.get(User, user_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    statement = select(Subscription).where(Subscription.user_id == user_id,
+                                           Subscription.room_id == room_id)
+    existing = session.exec(statement).first()
+
+    if existing:
+        return existing
+
+    sub = Subscription(user_id=user_id, room_id=room_id)
+    session.add(sub)
+    session.commit()
+    session.refresh(sub)
+
+    return sub
+
+
+@app.delete("/rooms/{room_id}/subscribe")
+def unsubscribe(room_id: int, user_id: int, session: Session = Depends(get_session)):
+    statement = select(Subscription).where(Subscription.user_id == user_id,
+                                           Subscription.room_id == room_id)
+    sub = session.exec(statement).first()
+
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    session.delete(sub)
+    session.commit()
+
+    return {"status": "Unsubscribed"}
+
+
+@app.get("/users/{user_id}/subscriptions")
+def user_subscriptions(user_id: int, session: Session = Depends(get_session)):
+    statement = select(Subscription).where(Subscription.user_id == user_id)
+    subs = session.exec(statement).all()
+
+    room_ids = [s.room_id for s in subs]
+
+    return {"room_ids": room_ids}
+
+
 @app.get("/messages/{room_id}")
 def get_messages(room_id: int, session: Session = Depends(get_session)):
     statement = select(Message).where(Message.room_id == room_id)
@@ -157,17 +224,3 @@ def get_messages(room_id: int, session: Session = Depends(get_session)):
         )
 
     return {"messages": messages}
-
-
-@app.get("/users")
-def list_users(session: Session = Depends(get_session)):
-    statement = select(User)
-    results = session.exec(statement).all()
-
-    return [
-        {
-            "id": user.id,
-            "username": user.username,
-        }
-        for user in results
-    ]
