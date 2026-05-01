@@ -131,6 +131,33 @@ function updateRoomsList(rooms, subscriptions) {
     });
 }
 
+function subscribeToRoom(availableRoomsListElement) {
+    availableRoomsListElement.addEventListener('click', async (event) => {
+        if (event.target.tagName === 'LI') {
+            const roomName = event.target.textContent;
+            const selectedRoom = currentRooms.find((room) => room.name === roomName);
+
+            const roomId = selectedRoom.id;
+
+            console.log(`Attempting to subscribe to room: ${roomName} (id=${roomId})`);
+
+            const response = await postJson(`/rooms/${roomId}/subscribe`,
+                { user_id: currentUserId, room_id: roomId });
+
+            if (!response.ok) {
+                throw new Error(`Subscription API error (${response.status})`);
+            }
+
+            console.log(`Subscribed to room: ${roomName} (id=${roomId})`);
+
+            // Refresh rooms list after subscribing
+            currentRooms = await fetchRooms();
+            const subscriptions = await fetchSubscriptions(currentUserId);
+            updateRoomsList(currentRooms, subscriptions);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     load();
 
@@ -172,29 +199,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // clicking on an available room should subscribe the user to it
     const availableRoomsListElement = document.getElementById('discoverRoomsList');
-    availableRoomsListElement.addEventListener('click', async (event) => {
-        if (event.target.tagName === 'LI') {
-            const roomName = event.target.textContent;
-            const selectedRoom = currentRooms.find((room) => room.name === roomName);
-
-            const roomId = selectedRoom.id;
-
-            console.log(`Attempting to subscribe to room: ${roomName} (id=${roomId})`);
-
-            const response = await postJson(`/rooms/${roomId}/subscribe`,
-                { user_id: currentUserId, room_id: roomId });
-
-            if (!response.ok) {
-                throw new Error(`Subscription API error (${response.status})`);
-            }
-
-            console.log(`Subscribed to room: ${roomName} (id=${roomId})`);
-            
-            // Refresh rooms list after subscribing
-            currentRooms = await fetchRooms();
-            const subscriptions = await fetchSubscriptions(currentUserId);
-            updateRoomsList(currentRooms, subscriptions);
-        }
-    });
-
+    subscribeToRoom(availableRoomsListElement);
 });
