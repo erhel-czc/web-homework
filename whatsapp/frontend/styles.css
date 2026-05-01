@@ -93,14 +93,9 @@ select {
   font-size: 0.9rem;
 }
 
-.room-form,
 #messageForm {
   display: grid;
   gap: 8px;
-}
-
-.room-form {
-  grid-template-columns: 1fr 1fr auto;
 }
 
 input,
@@ -263,7 +258,4 @@ button:disabled {
     min-height: 60vh;
   }
 
-  .room-form {
-    grid-template-columns: 1fr;
-  }
 }
