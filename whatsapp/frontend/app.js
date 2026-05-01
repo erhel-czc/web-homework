@@ -3,6 +3,7 @@ const API_BASE_URL = 'http://localhost:8000';
 
 let currentUserId = null;
 let currentUserName = null;
+let currentRooms = [];
 
 async function postJson(path, payload) {
     return fetch(`${API_BASE_URL}${path}`, {
@@ -159,12 +160,41 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // load rooms
     try {
-        const rooms = await fetchRooms();
+        currentRooms = await fetchRooms();
         const subscriptions = await fetchSubscriptions(currentUserId);
-        updateRoomsList(rooms, subscriptions);
+        updateRoomsList(currentRooms, subscriptions);
         
-    } catch (error) {
+    }
+    
+    catch (error) {
         console.error('Failed to load rooms:', error);
     }
+
+    // clicking on an available room should subscribe the user to it
+    const availableRoomsListElement = document.getElementById('discoverRoomsList');
+    availableRoomsListElement.addEventListener('click', async (event) => {
+        if (event.target.tagName === 'LI') {
+            const roomName = event.target.textContent;
+            const selectedRoom = currentRooms.find((room) => room.name === roomName);
+
+            const roomId = selectedRoom.id;
+
+            console.log(`Attempting to subscribe to room: ${roomName} (id=${roomId})`);
+
+            const response = await postJson(`/rooms/${roomId}/subscribe`,
+                { user_id: currentUserId, room_id: roomId });
+
+            if (!response.ok) {
+                throw new Error(`Subscription API error (${response.status})`);
+            }
+
+            console.log(`Subscribed to room: ${roomName} (id=${roomId})`);
+            
+            // Refresh rooms list after subscribing
+            currentRooms = await fetchRooms();
+            const subscriptions = await fetchSubscriptions(currentUserId);
+            updateRoomsList(currentRooms, subscriptions);
+        }
+    });
 
 });
