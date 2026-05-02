@@ -5,6 +5,7 @@ let currentUserId = null;
 let currentUserName = null;
 let currentRooms = [];
 let activeRoomId = null;
+let currentWs = null;
 
 async function postJson(path, payload) {
     return fetch(`${API_BASE_URL}${path}`, {
@@ -218,6 +219,11 @@ function handleJoinedRoomSelection(event, roomsListElement, activeRoomTitleEleme
 
     activeRoomTitleElement.textContent = room.name;
     toggleSubscriptionButton.disabled = false;
+
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = false;
+
+    loadMessagesForActiveRoom();
 }
 
 async function unsubscribeActiveRoom() {
@@ -236,6 +242,74 @@ async function unsubscribeActiveRoom() {
     currentRooms = await fetchRooms();
     const subscriptions = await fetchSubscriptions(currentUserId);
     updateRoomsList(currentRooms, subscriptions);
+}
+
+async function loadMessagesForActiveRoom() {
+    const status = document.getElementById('status');
+    const room = currentRooms.find((r) => r.id === activeRoomId);
+
+    status.textContent = `Loading messages for room "${room?.name}"...`;
+
+    const response = await fetch(`${API_BASE_URL}/messages/${activeRoomId}`);
+
+    if (!response.ok) {
+        throw new Error(`Messages API error (${response.status})`);
+    }
+
+    const data = await response.json();
+
+    console.log(`Loaded ${data.messages.length} messages for room id=${activeRoomId}`);
+    
+    renderMessages(data.messages);
+
+    connectWebSocket(activeRoomId);
+}
+
+function renderMessages(messages) {
+    const messagesEl = document.getElementById('messages');
+    messagesEl.innerHTML = '';
+    messages.forEach((msg) => appendMessage(msg));
+}
+
+function appendMessage(msg) {
+    const messagesEl = document.getElementById('messages');
+
+    const div = document.createElement('div');
+    div.classList.add('bubble');
+
+    if (msg.sender_id === currentUserId) {
+        div.classList.add('outgoing');
+    }
+
+    const sender = document.createElement('span');
+    sender.classList.add('msg-author');
+    sender.textContent = msg.sender_username;
+
+
+    const content = document.createElement('p');
+    content.textContent = msg.content;
+
+    div.appendChild(sender);
+    div.appendChild(content);
+    messagesEl.appendChild(div);
+
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function connectWebSocket(roomId) {
+    const status = document.getElementById('status');
+    status.textContent = `Connected to room "${currentRooms.find((r) => r.id === roomId).name}"`;
+
+    const ws = new WebSocket(`ws://localhost:8000/ws/${roomId}`);
+
+    ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        appendMessage(msg);
+    };
+
+    ws.onerror = (err) => console.error('WebSocket error:', err);
+
+    currentWs = ws;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -291,4 +365,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     toggleSubscriptionButton.addEventListener('click', unsubscribeActiveRoom);
+
+    // send message on form submit
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
+
+    messageForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const content = messageInput.value.trim();
+
+        const response = await postJson('/messages', {
+            sender_id: currentUserId,
+            room_id: activeRoomId,
+            content,
+        });
+
+        if (!response.ok) {
+            console.error(`Send message error (${response.status})`);
+            return;
+        }
+
+        messageInput.value = '';
+    });
+
 });
