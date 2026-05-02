@@ -4,6 +4,7 @@ const API_BASE_URL = 'http://localhost:8000';
 let currentUserId = null;
 let currentUserName = null;
 let currentRooms = [];
+let activeRoomId = null;
 
 async function postJson(path, payload) {
     return fetch(`${API_BASE_URL}${path}`, {
@@ -112,20 +113,55 @@ async function fetchSubscriptions(userId) {
 
 function updateRoomsList(rooms, subscriptions) {
     const availableRoomsListElement = document.getElementById('discoverRoomsList');
-    const RoomsListElement = document.getElementById('roomsList');
+    const roomsListElement = document.getElementById('roomsList');
+    const activeRoomTitleElement = document.getElementById('activeRoomTitle');
+    const toggleSubscriptionButton = document.getElementById('toggleSubscriptionBtn');
 
     availableRoomsListElement.innerHTML = '';
-    RoomsListElement.innerHTML = '';
+    roomsListElement.innerHTML = '';
+
+    const roomIdsSet = new Set(subscriptions.room_ids);
 
     rooms.forEach((room) => {
         const listItem = document.createElement('li');
-        listItem.textContent = room.name;
-        
-        if (subscriptions.room_ids.includes(room.id)) {
-            RoomsListElement.appendChild(listItem);
+        listItem.classList.add('room-item');
+
+        const meta = document.createElement('div');
+        meta.classList.add('meta');
+
+        const roomName = document.createElement('strong');
+        roomName.textContent = room.name;
+
+        const badge = document.createElement('span');
+        badge.classList.add('badge');
+
+        meta.appendChild(roomName);
+        meta.appendChild(badge);
+        listItem.appendChild(meta);
+
+        listItem.dataset.roomId = String(room.id);
+
+        if (roomIdsSet.has(room.id)) {
+            badge.textContent = 'Subscribed';
+            badge.classList.add('on');
+
+            if (activeRoomId === room.id) {
+                listItem.classList.add('active');
+            }
+
+            roomsListElement.appendChild(listItem);
         }
         
         else {
+            badge.textContent = 'Available';
+            listItem.classList.add('discover-item');
+
+            const joinButton = document.createElement('button');
+            joinButton.type = 'button';
+            joinButton.classList.add('join-btn');
+            joinButton.textContent = 'Join';
+
+            listItem.appendChild(joinButton);
             availableRoomsListElement.appendChild(listItem);
         }
     });
@@ -133,29 +169,73 @@ function updateRoomsList(rooms, subscriptions) {
 
 function subscribeToRoom(availableRoomsListElement) {
     availableRoomsListElement.addEventListener('click', async (event) => {
-        if (event.target.tagName === 'LI') {
-            const roomName = event.target.textContent;
-            const selectedRoom = currentRooms.find((room) => room.name === roomName);
-
-            const roomId = selectedRoom.id;
-
-            console.log(`Attempting to subscribe to room: ${roomName} (id=${roomId})`);
-
-            const response = await postJson(`/rooms/${roomId}/subscribe`,
-                { user_id: currentUserId, room_id: roomId });
-
-            if (!response.ok) {
-                throw new Error(`Subscription API error (${response.status})`);
-            }
-
-            console.log(`Subscribed to room: ${roomName} (id=${roomId})`);
-
-            // Refresh rooms list after subscribing
-            currentRooms = await fetchRooms();
-            const subscriptions = await fetchSubscriptions(currentUserId);
-            updateRoomsList(currentRooms, subscriptions);
+        // check if the clicked element is a join button
+        if (!event.target.closest('.join-btn')) {
+            return;
         }
+
+        const roomItem = event.target.closest('li');
+
+        const roomId = Number(roomItem.dataset.roomId);
+        const selectedRoom = currentRooms.find((room) => room.id === roomId);
+
+        console.log(`Attempting to subscribe to room: ${selectedRoom.name} (id=${roomId})`);
+
+        const response = await postJson(`/rooms/${roomId}/subscribe`, {
+            user_id: currentUserId,
+            room_id: roomId,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Subscription API error (${response.status})`);
+        }
+
+        console.log(`Subscribed to room: ${selectedRoom.name} (id=${roomId})`);
+
+        currentRooms = await fetchRooms();
+        const subscriptions = await fetchSubscriptions(currentUserId);
+        updateRoomsList(currentRooms, subscriptions);
     });
+}
+
+function handleJoinedRoomSelection(event, roomsListElement, activeRoomTitleElement, toggleSubscriptionButton) {
+    const roomItem = event.target.closest('li');
+
+    if (!roomItem) {
+        return;
+    }
+
+    const previouslyActive = roomsListElement.querySelector('.room-item.active');
+
+    if (previouslyActive) {
+        previouslyActive.classList.remove('active');
+    }
+
+    roomItem.classList.add('active');
+
+    activeRoomId = Number(roomItem.dataset.roomId);
+    const room = currentRooms.find((entry) => entry.id === activeRoomId);
+
+    activeRoomTitleElement.textContent = room.name;
+    toggleSubscriptionButton.disabled = false;
+}
+
+async function unsubscribeActiveRoom() {
+    const response = await fetch(`${API_BASE_URL}/rooms/${activeRoomId}/subscribe`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: currentUserId }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Unsubscribe API error (${response.status})`);
+    }
+
+    currentRooms = await fetchRooms();
+    const subscriptions = await fetchSubscriptions(currentUserId);
+    updateRoomsList(currentRooms, subscriptions);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -200,4 +280,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // clicking on an available room should subscribe the user to it
     const availableRoomsListElement = document.getElementById('discoverRoomsList');
     subscribeToRoom(availableRoomsListElement);
+
+    // clicking on a joined room should open the chat
+    const roomsListElement = document.getElementById('roomsList');
+    const activeRoomTitleElement = document.getElementById('activeRoomTitle');
+    const toggleSubscriptionButton = document.getElementById('toggleSubscriptionBtn');
+
+    roomsListElement.addEventListener('click', (event) => {
+        handleJoinedRoomSelection(event, roomsListElement, activeRoomTitleElement, toggleSubscriptionButton);
+    });
+
+    toggleSubscriptionButton.addEventListener('click', unsubscribeActiveRoom);
 });
