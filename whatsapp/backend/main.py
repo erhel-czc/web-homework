@@ -117,6 +117,7 @@ def create_user(payload: UserCreate, session: Session = Depends(get_session)):
     if not username:
         raise HTTPException(status_code=400, detail="Username cannot be empty")
 
+    # Check if username already exists
     existing_user = session.exec(
         select(User).where(User.username == username)).first()
     if existing_user:
@@ -143,9 +144,16 @@ def list_rooms(session: Session = Depends(get_session)):
 def create_room(payload: RoomCreate, session: Session = Depends(get_session)):
     name = payload.name.strip()
 
+    # Check for empty name
     if not name:
         raise HTTPException(
             status_code=400, detail="Room name cannot be empty")
+
+    # Check if room name already exists
+    existing_room = session.exec(
+        select(Room).where(Room.name == name)).first()
+    if existing_room:
+        return existing_room
 
     room = Room(name=name)
     session.add(room)
@@ -162,14 +170,17 @@ def subscribe(room_id: int, payload: SubscriptionChange, session: Session = Depe
     user_id = payload.user_id
     room = session.get(Room, room_id)
 
+    # Check if room exists
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
     user = session.get(User, user_id)
 
+    # Check if user exists
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Check if subscription already exists
     statement = select(Subscription).where(Subscription.user_id == user_id,
                                            Subscription.room_id == room_id)
     existing = session.exec(statement).first()
@@ -192,6 +203,7 @@ def unsubscribe(room_id: int, payload: SubscriptionChange, session: Session = De
                                            Subscription.room_id == room_id)
     sub = session.exec(statement).first()
 
+    # Check if subscription exists
     if not sub:
         raise HTTPException(status_code=404, detail="Subscription not found")
 
@@ -203,6 +215,11 @@ def unsubscribe(room_id: int, payload: SubscriptionChange, session: Session = De
 
 @app.get("/users/{user_id}/subscriptions")
 def user_subscriptions(user_id: int, session: Session = Depends(get_session)):
+    # Check if user exists
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     subs = session.exec(select(Subscription).where(
         Subscription.user_id == user_id)).all()
 
@@ -218,6 +235,7 @@ def get_messages(room_id: int, session: Session = Depends(get_session)):
 
     messages = []
 
+    # For each message, we also want to include the sender's username
     for msg in results:
         sender = session.get(User, msg.sender_id)
         messages.append({
@@ -241,6 +259,7 @@ async def send_message(payload: MessageCreate, session: Session = Depends(get_se
                                            Subscription.room_id == room_id)
     sub = session.exec(statement).first()
 
+    # Check if sender is subscribed to the room
     if not sub:
         raise HTTPException(
             status_code=403, detail="User is not subscribed to this room")
@@ -254,6 +273,7 @@ async def send_message(payload: MessageCreate, session: Session = Depends(get_se
     message_data = {
         "id": message.id,
         "sender_id": message.sender_id,
+        # Include sender's username for convenience, the if skips an error raised by pylance
         "sender_username": sender.username if sender else None,
         "room_id": message.room_id,
         "content": message.content,
