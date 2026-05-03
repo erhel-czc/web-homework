@@ -39,12 +39,13 @@ function isExistingUser(users, userName) {
     return users.some((user) => user.username === userName);
 }
 
-// Show a dialog to select a user from the list and return the selected username
+// Show a dialog to select an existing user or create a new one, returning the chosen username
 function askUserFromList(users) {
     return new Promise((resolve) => {
         const dialog = document.getElementById('joinDialog');
         const form = document.getElementById('joinForm');
         const userSelect = document.getElementById('usernameSelect');
+        const newUsernameInput = document.getElementById('newUsernameInput');
 
         userSelect.innerHTML = '';
         users.forEach((user) => {
@@ -54,14 +55,31 @@ function askUserFromList(users) {
             userSelect.appendChild(option);
         });
 
+        // Hide the existing-user section when there are no users yet
+        const existingSection = document.getElementById('usernameSelect').closest('label, select') ?? null;
+        const selectLabel = dialog.querySelector('label[for="usernameSelect"]');
+        const divider = dialog.querySelector('.dialog-divider');
+        if (users.length === 0) {
+            if (selectLabel) selectLabel.style.display = 'none';
+            userSelect.style.display = 'none';
+            if (divider) divider.style.display = 'none';
+        } else {
+            if (selectLabel) selectLabel.style.display = '';
+            userSelect.style.display = '';
+            if (divider) divider.style.display = '';
+        }
+
         const onSubmit = (event) => {
-            // prevent the form from submitting and reloading the page
             event.preventDefault();
-            const selectedUserName = userSelect.value;
+            const newName = newUsernameInput.value.trim();
+            // Prefer the typed new username; fall back to the selected existing one
+            const chosenName = newName || userSelect.value;
+
+            if (!chosenName) return;
 
             cleanup();
             dialog.close('submit');
-            resolve(selectedUserName);
+            resolve(chosenName);
         };
 
         const onCancel = (event) => {
@@ -80,6 +98,46 @@ function askUserFromList(users) {
         dialog.addEventListener('cancel', onCancel);
 
         // showModal in order to block the UI until the user selects an option
+        dialog.showModal();
+    });
+}
+
+// Open the create-room dialog and resolve with the new room name when submitted
+function askRoomName() {
+    return new Promise((resolve, reject) => {
+        const dialog = document.getElementById('createRoomDialog');
+        const form = document.getElementById('createRoomForm');
+        const roomNameInput = document.getElementById('roomNameInput');
+        const cancelBtn = document.getElementById('cancelCreateRoomBtn');
+
+        roomNameInput.value = '';
+
+        const onSubmit = (event) => {
+            // prevent the default form submission behavior which would cause a page reload
+            event.preventDefault();
+            const name = roomNameInput.value.trim();
+
+            if (!name) return;
+
+            cleanup();
+            dialog.close();
+            resolve(name);
+        };
+
+        const onCancel = () => {
+            cleanup();
+            dialog.close();
+            reject(new Error('cancelled'));
+        };
+
+        function cleanup() {
+            form.removeEventListener('submit', onSubmit);
+            cancelBtn.removeEventListener('click', onCancel);
+        }
+
+        form.addEventListener('submit', onSubmit);
+        cancelBtn.addEventListener('click', onCancel);
+
         dialog.showModal();
     });
 }
@@ -361,12 +419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const users = await fetchUsers();
 
-        // prevent the user from trying to select a username if there are no users available
-        // (e.g. if the backend is not running or the database is empty)
-        if (!Array.isArray(users) || users.length === 0) {
-            throw new Error('No users available. Create users first from backend/CLI.');
-        }
-
+        // If no users exist yet, pass an empty list
         const userName = await askUserFromList(users);
         const user = await selectUser(userName);
 
@@ -431,5 +484,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         messageInput.value = '';
+    });
+
+    // clicking the "+" button opens the create-room dialog
+    const newRoomBtn = document.getElementById('newRoomBtn');
+    newRoomBtn.addEventListener('click', async () => {
+        let roomName;
+        try {
+            roomName = await askRoomName();
+        } catch {
+            // user cancelled
+            return;
+        }
+
+        const response = await postJson('/rooms', { name: roomName });
+        if (!response.ok) {
+            const status = document.getElementById('status');
+            status.textContent = `Failed to create room (${response.status})`;
+            status.classList.add('error');
+            return;
+        }
+
+        const newRoom = await response.json();
+        console.log(`Room created: ${newRoom.name} (id=${newRoom.id})`);
+
+        // Subscribe the current user to the newly created room automatically
+        await postJson(`/rooms/${newRoom.id}/subscribe`, { user_id: currentUserId });
+
+        currentRooms = await fetchRooms();
+        const subscriptions = await fetchSubscriptions(currentUserId);
+        updateRoomsList(currentRooms, subscriptions);
     });
 });

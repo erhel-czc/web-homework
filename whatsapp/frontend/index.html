@@ -18,7 +18,7 @@
         </header>
 
         <section class="rooms-tools">
-          <h2>Your Rooms</h2>
+          <h2>Your Rooms <button id="newRoomBtn" class="new-room-btn" title="Create a new room">+</button></h2>
           <p class="hint">Joined rooms appear below. Discover and join other rooms from the list.</p>
         </section>
 
@@ -60,14 +60,32 @@
       </main>
     </div>
     <dialog id="joinDialog" class="join-dialog">
-      <form id="joinForm" method="dialog" class="join-card">
+      <form id="joinForm" class="join-card">
         <h2>Join WhatsApp</h2>
-        <p>Users are predefined in backend. Select one to join.</p>
 
-        <label for="usernameSelect">Username</label>
-        <select id="usernameSelect" required></select>
+        <label for="newUsernameInput">New username</label>
+        <input id="newUsernameInput" type="text" placeholder="Enter a new username" autocomplete="off" />
+
+        <div class="dialog-divider"><span>or pick an existing one</span></div>
+
+        <label for="usernameSelect">Existing user</label>
+        <select id="usernameSelect"></select>
 
         <button type="submit">Enter Chat</button>
+      </form>
+    </dialog>
+
+    <dialog id="createRoomDialog" class="join-dialog">
+      <form id="createRoomForm" class="join-card">
+        <h2>Create a Room</h2>
+
+        <label for="roomNameInput">Room name</label>
+        <input id="roomNameInput" type="text" placeholder="Enter room name" autocomplete="off" required />
+
+        <div class="dialog-actions">
+          <button type="submit">Create</button>
+          <button type="button" id="cancelCreateRoomBtn">Cancel</button>
+        </div>
       </form>
     </dialog>
 
