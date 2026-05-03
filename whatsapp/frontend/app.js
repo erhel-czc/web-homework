@@ -298,7 +298,7 @@ function appendMessage(msg) {
 
 function connectWebSocket(roomId) {
     const status = document.getElementById('status');
-    status.textContent = `Connected to room "${currentRooms.find((r) => r.id === roomId).name}"`;
+    status.textContent = `Connected to "${currentRooms.find((r) => r.id === roomId).name}"`;
 
     const ws = new WebSocket(`ws://localhost:8000/ws/${roomId}`);
 
