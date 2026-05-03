@@ -206,7 +206,10 @@ function subscribeToRoom(availableRoomsListElement) {
         });
 
         if (!response.ok) {
-            throw new Error(`Subscription API error (${response.status})`);
+            const status = document.getElementById('status');
+            status.textContent = `Failed to subscribe to room (${response.status})`;
+            status.classList.add('error');
+            return;
         }
 
         console.log(`Subscribed to room: ${selectedRoom.name} (id=${roomId})`);
@@ -256,7 +259,10 @@ async function unsubscribeActiveRoom() {
     });
 
     if (!response.ok) {
-        throw new Error(`Unsubscribe API error (${response.status})`);
+        const status = document.getElementById('status');
+        status.textContent = `Failed to unsubscribe (${response.status})`;
+        status.classList.add('error');
+        return;
     }
 
     currentRooms = await fetchRooms();
@@ -271,11 +277,14 @@ async function loadMessagesForActiveRoom() {
     const room = currentRooms.find((r) => r.id === activeRoomId);
 
     status.textContent = `Loading messages for room "${room?.name}"...`;
+    status.classList.remove('error');
 
     const response = await fetch(`${API_BASE_URL}/messages/${activeRoomId}`);
 
     if (!response.ok) {
-        throw new Error(`Messages API error (${response.status})`);
+        status.textContent = `Failed to load messages (${response.status})`;
+        status.classList.add('error');
+        return;
     }
 
     const data = await response.json();
@@ -415,7 +424,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (!response.ok) {
-            console.error(`Send message error (${response.status})`);
+            const status = document.getElementById('status');
+            status.textContent = `Failed to send message (${response.status})`;
+            status.classList.add('error');
             return;
         }
 
