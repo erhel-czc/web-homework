@@ -47,8 +47,23 @@ rm backend/whatsapp.db
 
 ### 2. Open the frontend
 
+#### Option 1: Without a local server
 Open `frontend/index.html` directly in your browser (no build step needed).
 
+#### Option 2: With a local server
+- Using vite:
+```bash
+cd frontend
+npx vite
+```
+
+- Using the live server extension in VS Code
+
+**Warning** While developing this app, I faced an issue when a change occurred in the database (e.g. a new message was sent): the live server reloaded the whole session (which meant losing the current username for example). To avoid this, add the following line to your `.vscode/settings.json`:
+
+```json
+"liveServer.settings.root": "/frontend"
+```
 ---
 
 ## Creating Users and Rooms
