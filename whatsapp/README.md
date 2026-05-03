@@ -2,6 +2,8 @@
 
 A real-time messaging web application built with **FastAPI**, **WebSockets**, **SQLite**, and a JS/HTML/CSS frontend.
 
+See the notes at the end of this README for known issues and limitations.
+
 ---
 
 ## Features
@@ -68,7 +70,8 @@ npx vite
 
 ## Creating Users and Rooms
 
-Users and rooms are managed via the API (e.g. from a second terminal using `httpie`):
+You can create users and rooms through the UI.
+Users and rooms can be managed via the API (e.g. from a second terminal using `httpie`):
 
 ```bash
 # Create users
@@ -86,3 +89,9 @@ http POST http://localhost:8000/rooms name=bde
 ## API Overview
 
 Interactive API docs are available at `http://localhost:8000/docs`.
+
+---
+## Notes
+- The app is not entirely responsive (and not secured at all),
+- You can't remove users or rooms through the UI and CLI once created (on this version)
+- When you unsubscribe from a room, the chat remains open and if you send a message at that time, it raises an error (on this version)
