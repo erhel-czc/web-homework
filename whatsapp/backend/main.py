@@ -6,7 +6,6 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 # Path to the local SQLite database file
 DATABASE_URL = "sqlite:///./whatsapp.db"
-# echo=True prints all SQL queries to the console (useful during development)
 engine = create_engine(DATABASE_URL, echo=True)
 
 
