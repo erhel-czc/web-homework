@@ -4,29 +4,43 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 # --- Database setup ---
 
+# Path to the local SQLite database file
 DATABASE_URL = "sqlite:///./whatsapp.db"
+# echo=True prints all SQL queries to the console (useful during development)
 engine = create_engine(DATABASE_URL, echo=True)
 
 
 # --- Tables ---
 
 class User(SQLModel, table=True):
+    """Represents a user of the application."""
+
     id: int = Field(default=None, primary_key=True)
+    # Indexed to speed up lookups by username
     username: str = Field(index=True)
 
 
 class Room(SQLModel, table=True):
+    """Represents a chat room."""
+
     id: int = Field(default=None, primary_key=True)
     name: str
 
 
 class Subscription(SQLModel, table=True):
+    """
+    Tracks which users are subscribed to which rooms.
+    A user must be subscribed to a room to send messages in it.
+    """
+
     id: int = Field(default=None, primary_key=True)
     user_id: int
     room_id: int
 
 
 class Message(SQLModel, table=True):
+    """Represents a message sent by a user in a room."""
+
     id: int = Field(default=None, primary_key=True)
     sender_id: int
     room_id: int
@@ -34,29 +48,43 @@ class Message(SQLModel, table=True):
 
 
 # --- Request models ---
+# These models validate incoming HTTP request bodies.
+# They are separate from the table models to avoid exposing internal fields.
 
 class UserCreate(SQLModel):
+    """Payload for creating a user."""
+
     username: str
 
 
 class RoomCreate(SQLModel):
+    """Payload for creating a room."""
+
     name: str
 
 
 class SubscriptionChange(SQLModel):
+    """Payload for subscribing or unsubscribing a user from a room."""
+
     user_id: int
 
 
 class MessageCreate(SQLModel):
+    """Payload for sending a message in a room."""
+
     sender_id: int
     room_id: int
     content: str
 
 
+# Create all tables defined above if they do not already exist
 SQLModel.metadata.create_all(engine)
 
 
 def get_session():
+    """SQLModel session generator used as a FastAPI dependency.
+    Opens a session at the start of a request and closes it automatically.
+    """
     with Session(engine) as session:
         yield session
 
@@ -76,22 +104,28 @@ app.add_middleware(
 
 
 class ConnectionManager:
+    """Manages active WebSocket connections grouped by room."""
+
     def __init__(self):
+        # Maps room_id to the list of WebSocket connections currently open in that room
         self.active_connections: dict[int, list[WebSocket]] = {}
 
     async def connect(self, room_id: int, websocket: WebSocket):
+        """Accept a new WebSocket connection and register it for the given room."""
         await websocket.accept()
 
-        # check if room_id exists in active_connections
+        # Initialise the room entry if this is the first connection in that room
         if room_id not in self.active_connections:
             self.active_connections[room_id] = []
 
         self.active_connections[room_id].append(websocket)
 
     def disconnect(self, room_id: int, websocket: WebSocket):
+        """Remove a WebSocket connection from the given room."""
         self.active_connections[room_id].remove(websocket)
 
     async def broadcast(self, room_id: int, data: dict):
+        """Send a JSON payload to all active connections in the given room."""
         for connection in self.active_connections.get(room_id, []):
             await connection.send_json(data)
 
@@ -105,6 +139,7 @@ manager = ConnectionManager()
 
 @app.get("/users")
 def list_users(session: Session = Depends(get_session)):
+    """Return the list of all registered users."""
     users = session.exec(select(User)).all()
 
     return [{"id": u.id, "username": u.username} for u in users]
@@ -112,6 +147,7 @@ def list_users(session: Session = Depends(get_session)):
 
 @app.post("/users")
 def create_user(payload: UserCreate, session: Session = Depends(get_session)):
+    """Create a new user. If the username already exists, return the existing record."""
     username = payload.username.strip()
 
     if not username:
@@ -135,6 +171,7 @@ def create_user(payload: UserCreate, session: Session = Depends(get_session)):
 
 @app.get("/rooms")
 def list_rooms(session: Session = Depends(get_session)):
+    """Return the list of all available rooms."""
     rooms = session.exec(select(Room)).all()
 
     return [{"id": room.id, "name": room.name} for room in rooms]
@@ -142,6 +179,7 @@ def list_rooms(session: Session = Depends(get_session)):
 
 @app.post("/rooms")
 def create_room(payload: RoomCreate, session: Session = Depends(get_session)):
+    """Create a new room. If the name already exists, return the existing record."""
     name = payload.name.strip()
 
     # Check for empty name
@@ -167,6 +205,7 @@ def create_room(payload: RoomCreate, session: Session = Depends(get_session)):
 
 @app.post("/rooms/{room_id}/subscribe")
 def subscribe(room_id: int, payload: SubscriptionChange, session: Session = Depends(get_session)):
+    """Subscribe a user to a room. If already subscribed, return the existing subscription."""
     user_id = payload.user_id
     room = session.get(Room, room_id)
 
@@ -198,6 +237,7 @@ def subscribe(room_id: int, payload: SubscriptionChange, session: Session = Depe
 
 @app.delete("/rooms/{room_id}/subscribe")
 def unsubscribe(room_id: int, payload: SubscriptionChange, session: Session = Depends(get_session)):
+    """Unsubscribe a user from a room."""
     user_id = payload.user_id
     statement = select(Subscription).where(Subscription.user_id == user_id,
                                            Subscription.room_id == room_id)
@@ -215,6 +255,7 @@ def unsubscribe(room_id: int, payload: SubscriptionChange, session: Session = De
 
 @app.get("/users/{user_id}/subscriptions")
 def user_subscriptions(user_id: int, session: Session = Depends(get_session)):
+    """Return the list of room IDs the given user is subscribed to."""
     # Check if user exists
     user = session.get(User, user_id)
     if not user:
@@ -230,6 +271,7 @@ def user_subscriptions(user_id: int, session: Session = Depends(get_session)):
 
 @app.get("/messages/{room_id}")
 def get_messages(room_id: int, session: Session = Depends(get_session)):
+    """Return all messages for a given room, including the sender's username."""
     results = session.exec(select(Message).where(
         Message.room_id == room_id)).all()
 
@@ -251,6 +293,11 @@ def get_messages(room_id: int, session: Session = Depends(get_session)):
 
 @app.post("/messages")
 async def send_message(payload: MessageCreate, session: Session = Depends(get_session)):
+    """
+    Save a message to the database and broadcast it in real time to all
+    WebSocket clients connected to the target room.
+    The sender must be subscribed to the room.
+    """
     sender_id = payload.sender_id
     room_id = payload.room_id
     content = payload.content
@@ -288,6 +335,11 @@ async def send_message(payload: MessageCreate, session: Session = Depends(get_se
 
 @app.websocket("/ws/{room_id}")
 async def websocket_endpoint(websocket: WebSocket, room_id: int):
+    """
+    WebSocket endpoint for a room.
+    Clients connect here to receive new messages in real time.
+    The connection is kept alive until the client disconnects.
+    """
     await manager.connect(room_id, websocket)
 
     try:
