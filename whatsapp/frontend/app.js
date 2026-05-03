@@ -297,6 +297,11 @@ function appendMessage(msg) {
 }
 
 function connectWebSocket(roomId) {
+    if (currentWs) {
+        currentWs.close();
+        currentWs = null;
+    }
+
     const status = document.getElementById('status');
     status.textContent = `Connected to "${currentRooms.find((r) => r.id === roomId).name}"`;
 
